@@ -1,0 +1,19 @@
+<libraries>
+  <library
+      name="C:\Users\LHL\Documents\Unity Projects\XScrollView\Library\Bee\Android\Prj\Mono2x\Gradle@@:unityLibrary::release"
+      jars="C:\Users\LHL\Documents\Unity Projects\XScrollView\Library\Bee\Android\Prj\Mono2x\Gradle\unityLibrary\build\.transforms\93da31cdb17a42e3ae78dd41c1e27ce3\transformed\out\jars\classes.jar;C:\Users\LHL\Documents\Unity Projects\XScrollView\Library\Bee\Android\Prj\Mono2x\Gradle\unityLibrary\build\.transforms\93da31cdb17a42e3ae78dd41c1e27ce3\transformed\out\jars\libs\unity-classes.jar"
+      resolved="Gradle:unityLibrary:unspecified"
+      folder="C:\Users\LHL\Documents\Unity Projects\XScrollView\Library\Bee\Android\Prj\Mono2x\Gradle\unityLibrary\build\.transforms\93da31cdb17a42e3ae78dd41c1e27ce3\transformed\out"
+      manifest="AndroidManifest.xml"
+      resFolder="res"
+      assetsFolder="assets"
+      lintJar="lint.jar"
+      publicResources="public.txt"
+      symbolFile="R.txt"
+      externalAnnotations="annotations.zip"
+      proguardRules="proguard.txt"/>
+  <library
+      name="__local_aars__:C:\Users\LHL\Documents\Unity Projects\XScrollView\Library\Bee\Android\Prj\Mono2x\Gradle\unityLibrary\libs\unity-classes.jar:unspecified@jar"
+      jars="C:\Users\LHL\Documents\Unity Projects\XScrollView\Library\Bee\Android\Prj\Mono2x\Gradle\unityLibrary\libs\unity-classes.jar"
+      resolved="__local_aars__:C:\Users\LHL\Documents\Unity Projects\XScrollView\Library\Bee\Android\Prj\Mono2x\Gradle\unityLibrary\libs\unity-classes.jar:unspecified"/>
+</libraries>
