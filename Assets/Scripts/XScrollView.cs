@@ -15,22 +15,22 @@ namespace XUITools
             Vertical,
             Horizontal,
         }
-        
+
         public enum ScrollViewType
         {
             List,
             Grid,
             Table,
-        }        
+        }
 
         #endregion
 
-        #region SupportClass
+        #region Class
 
         class XScrollViewItemData
         {
             public string identifier;
-            public Vector2 size;
+            public Vector2? size;
             public Vector2 pos;
         }
 
@@ -47,18 +47,18 @@ namespace XUITools
         [SerializeField] private int horizontalSpacing;
 
         [SerializeField] private ScrollDirection scrollDir;
-        
+
         [SerializeField] ScrollViewType scrollViewType;
 
         #endregion
-        
+
         public Func<int, string> onGetItemIdentifier;
-        
+
         public Action<int, string, GameObject> onItemRefresh;
 
         private ScrollRect scrollRect;
 
-        private XGameObjectPool itemPool;
+        private MultipleObjectPool<string, GameObject> itemPool;
 
         private List<XScrollViewItemData> virtualList;
 
@@ -83,12 +83,12 @@ namespace XUITools
         public void Add(int count)
         {
             var c = this.ItemCount;
-            for (int i = c; i < c + count; i++)
+            for (var i = c; i < c + count; i++)
             {
                 var item = GenVirtualItem(i);
                 if (item == null)
                     continue;
-                
+
                 this.virtualList.Add(item);
             }
 
@@ -103,7 +103,7 @@ namespace XUITools
                 Add(count);
                 return;
             }
-            
+
             if (!IsValidListIndex(startIndex))
             {
                 Debug.LogError("Insert index must be correctly!");
@@ -111,7 +111,7 @@ namespace XUITools
             }
 
             var insertCount = 0;
-            for (int i = startIndex; i < startIndex + count; i++)
+            for (var i = startIndex; i < startIndex + count; i++)
             {
                 var item = GenVirtualItem(i);
                 if (item == null)
@@ -138,7 +138,7 @@ namespace XUITools
             UpdateContentSize();
             RefreshViewport();
         }
-        
+
         public void Clear()
         {
             this.virtualList.Clear();
@@ -161,15 +161,12 @@ namespace XUITools
             if (endIndex > this.curViewportRange.y)
                 endIndex = this.curViewportRange.y;
 
-            if (this.onItemRefresh != null)
-            {
-                for (int i = startIndex; i <= endIndex; i++)
-                {
-                    GameObject go;
-                    if (this.itemEntities.TryGetValue(i, out go))
-                        this.onItemRefresh(i, this.virtualList[i].identifier, go);
-                }
-            }
+            if (this.onItemRefresh == null)
+                return;
+
+            for (var i = startIndex; i <= endIndex; i++)
+                if (this.itemEntities.TryGetValue(i, out var go))
+                    this.onItemRefresh(i, this.virtualList[i].identifier, go);
         }
 
         public void OnItemSizeChange(int index, Vector2 size)
@@ -208,28 +205,33 @@ namespace XUITools
                 return;
 
             float targetPosY = -1;
+            var item = this.virtualList[index];
             if (index <= this.curViewportRange.x)
-                targetPosY = -this.virtualList[index].pos.y;
+                targetPosY = -item.pos.y;
             else if (index >= this.curViewportRange.y)
-                targetPosY = -this.virtualList[index].pos.y + this.virtualList[index].size.y - vHeight;
+                targetPosY = -item.pos.y + GetItemSize(item).y - vHeight;
 
             if (Mathf.Approximately(targetPosY, -1))
                 return;
 
-            targetPosY = Math.Clamp(targetPosY, 0, cHeight - vHeight);
+            targetPosY = Mathf.Clamp(targetPosY, 0, cHeight - vHeight);
             var lp = this.scrollRect.content.localPosition;
-            if (!Mathf.Approximately(lp.y, targetPosY))
-            {
-                lp.y = targetPosY;
-                this.scrollRect.content.localPosition = lp;
-            }
+            if (Mathf.Approximately(lp.y, targetPosY))
+                return;
+
+            lp.y = targetPosY;
+            this.scrollRect.content.localPosition = lp;
         }
 
         private void JumpHorizontal(int index)
         {
-            
         }
-        
+
+        private Vector2 GetItemSize(XScrollViewItemData data)
+        {
+            return data.size ?? this.itemOriginalSize[data.identifier];
+        }
+
         private void RefreshViewport()
         {
             var firstShowIndex = -1;
@@ -247,20 +249,20 @@ namespace XUITools
                         // list move forward
                         if (viewportStart < cachedViewportStart)
                         {
-                            for (int i = firstShowIndex; i < this.virtualList.Count; i++)
+                            for (var i = firstShowIndex; i < this.virtualList.Count; i++)
                             {
                                 firstShowIndex = i;
                                 var item = this.virtualList[i];
-                                if (item.pos.y - item.size.y < viewportStart)
+                                if (item.pos.y - GetItemSize(item).y < viewportStart)
                                     break;
                             }
                         }
                         else if (viewportStart > cachedViewportStart)
                         {
-                            for (int i = firstShowIndex; i >= 0; i--)
+                            for (var i = firstShowIndex; i >= 0; i--)
                             {
                                 var item = this.virtualList[i];
-                                if (item.pos.y - item.size.y >= viewportStart)
+                                if (item.pos.y - GetItemSize(item).y >= viewportStart)
                                     break;
 
                                 firstShowIndex = i;
@@ -269,10 +271,10 @@ namespace XUITools
                     }
                     else
                     {
-                        for (int i = 0; i < this.virtualList.Count; i++)
+                        for (var i = 0; i < this.virtualList.Count; i++)
                         {
                             var item = this.virtualList[i];
-                            if (item.pos.y - item.size.y < viewportStart)
+                            if (item.pos.y - GetItemSize(item).y < viewportStart)
                             {
                                 firstShowIndex = i;
                                 break;
@@ -280,7 +282,7 @@ namespace XUITools
                         }
                     }
 
-                    for (int i = firstShowIndex; i < this.virtualList.Count; i++)
+                    for (var i = firstShowIndex; i < this.virtualList.Count; i++)
                     {
                         var item = this.virtualList[i];
                         if (item.pos.y <= viewportEnd)
@@ -299,20 +301,20 @@ namespace XUITools
                         // list move forward
                         if (viewportStart > cachedViewportStart)
                         {
-                            for (int i = firstShowIndex; i < this.virtualList.Count; i++)
+                            for (var i = firstShowIndex; i < this.virtualList.Count; i++)
                             {
                                 firstShowIndex = i;
                                 var item = this.virtualList[i];
-                                if (item.pos.x + item.size.x > viewportStart)
+                                if (item.pos.x + GetItemSize(item).x > viewportStart)
                                     break;
                             }
                         }
                         else if (viewportStart < cachedViewportStart)
                         {
-                            for (int i = firstShowIndex; i >= 0; i--)
+                            for (var i = firstShowIndex; i >= 0; i--)
                             {
                                 var item = this.virtualList[i];
-                                if (item.pos.x + item.size.x <= viewportStart)
+                                if (item.pos.x + GetItemSize(item).x <= viewportStart)
                                     break;
 
                                 firstShowIndex = i;
@@ -321,18 +323,18 @@ namespace XUITools
                     }
                     else
                     {
-                        for (int i = 0; i < this.virtualList.Count; i++)
+                        for (var i = 0; i < this.virtualList.Count; i++)
                         {
                             var item = this.virtualList[i];
-                            if (item.pos.x + item.size.x > viewportStart)
+                            if (item.pos.x + GetItemSize(item).x > viewportStart)
                             {
                                 firstShowIndex = i;
                                 break;
                             }
                         }
                     }
-                    
-                    for (int i = firstShowIndex; i < this.virtualList.Count; i++)
+
+                    for (var i = firstShowIndex; i < this.virtualList.Count; i++)
                     {
                         var item = this.virtualList[i];
                         if (item.pos.x >= viewportEnd)
@@ -343,49 +345,48 @@ namespace XUITools
                 }
 
                 this.cachedViewportStart = viewportStart;
-                
+
                 var removeKeys = new List<int>();
                 foreach (var item in this.itemEntities)
                 {
                     // out of range, remove it.
                     if (item.Key < firstShowIndex || item.Key > lastShowIndex)
                     {
-                        this.itemPool.RecycleGO(item.Value);
+                        this.itemPool.Release(item.Value);
                         removeKeys.Add(item.Key);
                     }
                     // item incorrectly, remove it.
                     else if (item.Value.name != this.virtualList[item.Key].identifier)
                     {
-                        this.itemPool.RecycleGO(item.Value);
+                        this.itemPool.Release(item.Value);
                         removeKeys.Add(item.Key);
                     }
                 }
 
                 foreach (var key in removeKeys)
                     this.itemEntities.Remove(key);
-                
-                for (int i = firstShowIndex; i <= lastShowIndex; i++)
+
+                for (var i = firstShowIndex; i <= lastShowIndex; i++)
                 {
                     var itemData = this.virtualList[i];
-                    GameObject go;
-                    if (!this.itemEntities.TryGetValue(i, out go))
+                    if (!this.itemEntities.TryGetValue(i, out var go))
                     {
-                        go = this.itemPool.GetGO(itemData.identifier);
+                        go = this.itemPool.Get(itemData.identifier);
                         this.itemEntities.Add(i, go);
                     }
 
                     var rt = go.GetComponent<RectTransform>();
                     rt.anchoredPosition = itemData.pos;
                     if (rt.rect.size != itemData.size)
-                        rt.sizeDelta = itemData.size;
-                    
+                        rt.sizeDelta = GetItemSize(itemData);
+
                     this.onItemRefresh?.Invoke(i, itemData.identifier, go);
                 }
             }
             else
             {
                 foreach (var kvp in this.itemEntities)
-                    this.itemPool.RecycleGO(kvp.Value);
+                    this.itemPool.Release(kvp.Value);
 
                 this.itemEntities.Clear();
             }
@@ -394,7 +395,7 @@ namespace XUITools
             this.curViewportRange.x = firstShowIndex;
             this.curViewportRange.y = lastShowIndex;
         }
-        
+
         private void UpdateContentSize()
         {
             var contentRT = this.scrollRect.content;
@@ -411,12 +412,12 @@ namespace XUITools
                 var lastItem = this.virtualList[this.ItemCount - 1];
                 if (this.scrollDir == ScrollDirection.Vertical)
                 {
-                    oldSize.y = Mathf.Abs(lastItem.pos.y) + lastItem.size.y;
+                    oldSize.y = Mathf.Abs(lastItem.pos.y) + GetItemSize(lastItem).y;
                 }
                 else
                 {
-                    oldSize.x = lastItem.pos.x + lastItem.size.x;
-                }   
+                    oldSize.x = lastItem.pos.x + GetItemSize(lastItem).x;
+                }
             }
 
             contentRT.sizeDelta = oldSize;
@@ -430,20 +431,19 @@ namespace XUITools
                 Debug.LogError("Identifier get error at index: " + index);
                 return null;
             }
-            
+
             return new XScrollViewItemData
             {
                 identifier = id,
-                size = this.itemOriginalSize[id],
                 pos = GetItemPos(index)
             };
         }
-        
+
         private bool IsValidListIndex(int index)
         {
             return index >= 0 && index < this.virtualList.Count;
         }
-        
+
         private Vector2 GetItemPos(int index)
         {
             var preIndex = index - 1;
@@ -454,9 +454,10 @@ namespace XUITools
 
                 var lastItem = this.virtualList[preIndex];
                 if (this.scrollDir == ScrollDirection.Vertical)
-                    return new Vector2(lastItem.pos.x, lastItem.pos.y - lastItem.size.y - this.verticalSpacing);
+                    return new Vector2(lastItem.pos.x, lastItem.pos.y - GetItemSize(lastItem).y - this.verticalSpacing);
                 else
-                    return new Vector2(lastItem.pos.x + lastItem.size.x + this.horizontalSpacing, lastItem.pos.y);
+                    return new Vector2(lastItem.pos.x + GetItemSize(lastItem).x + this.horizontalSpacing,
+                        lastItem.pos.y);
             }
 
             return Vector2.zero;
@@ -471,7 +472,7 @@ namespace XUITools
             if (startIndex < 0)
                 startIndex = 0;
 
-            for (int i = startIndex; i < this.virtualList.Count; i++)
+            for (var i = startIndex; i < this.virtualList.Count; i++)
                 this.virtualList[i].pos = GetItemPos(i);
         }
 
@@ -479,24 +480,32 @@ namespace XUITools
         {
             this.virtualList = new List<XScrollViewItemData>();
             this.itemEntities = new Dictionary<int, GameObject>();
-            
+
             this.itemOriginalSize = new Dictionary<string, Vector2>();
             var goList = new List<GameObject>();
-            for (int i = 0; i < this.items.Length; i++)
+            foreach (var t in this.items)
             {
-                var go = this.items[i].gameObject;
-                this.itemOriginalSize.Add(go.name, this.items[i].rect.size);
+                var go = t.gameObject;
+                this.itemOriginalSize.Add(go.name, t.rect.size);
                 goList.Add(go);
             }
-            
-            this.itemPool = XGameObjectPool.CreateHidePool(goList);
-            this.itemPool.onNewGameObject = o => o.transform.SetParent(this.scrollRect.content, false);
-            
+
+            var dict = new Dictionary<string, GameObject>();
+            this.itemPool = MultipleObjectPool<string, GameObject>.Create(goList, go => go.name,
+                key =>
+                {
+                    var ret = Instantiate(dict[key]);
+                    ret.name = key;
+                    return ret;
+                }, dict,
+                go =>
+                {
+                    go.SetActive(true);
+                    go.transform.SetParent(this.scrollRect.content, false);
+                }, go => go.SetActive(false), Destroy);
+
             this.scrollRect = GetComponent<ScrollRect>();
-            this.scrollRect.onValueChanged.AddListener((v2) =>
-            {
-                RefreshViewport();
-            });
+            this.scrollRect.onValueChanged.AddListener((v2) => { RefreshViewport(); });
         }
-    }   
+    }
 }
