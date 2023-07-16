@@ -1,12 +1,19 @@
 ﻿using System;
 using System.Collections.Generic;
+
+#if UNITY_2021_1_OR_NEWER
 using UnityEngine.Pool;
+#endif
 
 namespace XUITools
 {
     public class MultipleObjectPool<TKey, TVal> where TVal : class
     {
-        private Dictionary<TKey, ObjectPool<TVal>> poolObject;
+#if UNITY_2021_1_OR_NEWER
+        private Dictionary<TKey, ObjectPool<TVal>> pools;
+#else
+        private Dictionary<TKey, UnityObjectPoolCopy<TVal>> pools;
+#endif
 
         private Func<TVal, TKey> keyGetter;
 
@@ -31,12 +38,24 @@ namespace XUITools
         private MultipleObjectPool(Dictionary<TKey, TVal> dict, Func<TVal, TKey> keyGetter, Func<TKey, TVal> onCreate,
             Action<TVal> onGet = null, Action<TVal> onRelease = null, Action<TVal> onDestroy = null)
         {
-            this.poolObject = new Dictionary<TKey, ObjectPool<TVal>>(dict.Count);
+#if UNITY_2021_1_OR_NEWER
+            this.pools = new Dictionary<TKey, ObjectPool<TVal>>(dict.Count);
+#else
+            this.pools = new Dictionary<TKey, UnityObjectPoolCopy<TVal>>(dict.Count);
+#endif
+
             foreach (var kvp in dict)
             {
                 var key = kvp.Key;
+
+#if UNITY_2021_1_OR_NEWER
                 var pool = new ObjectPool<TVal>(() => onCreate(key), onGet, onRelease, onDestroy, false);
-                this.poolObject.Add(key, pool);
+#else
+                var pool = new UnityObjectPoolCopy<TVal>(() => onCreate(key),
+                    onGet, onRelease, onDestroy, false);
+#endif
+
+                this.pools.Add(key, pool);
             }
 
             this.keyGetter = keyGetter;
@@ -44,22 +63,39 @@ namespace XUITools
 
         public TVal Get(TKey key)
         {
-            return poolObject.TryGetValue(key, out var pool) ? pool.Get() : null;
+            return pools.TryGetValue(key, out var pool) ? pool.Get() : null;
         }
 
         public void Release(TVal obj)
         {
             var key = this.keyGetter(obj);
-            if (poolObject.TryGetValue(key, out var pool))
+            if (pools.TryGetValue(key, out var pool))
                 pool.Release(obj);
         }
 
         public void Clear()
         {
-            foreach (var pool in poolObject.Values)
+            foreach (var pool in pools.Values)
             {
                 pool.Clear();
             }
         }
+    }
+
+    public static class DictionaryUtils
+    {
+#if !UNITY_2021_1_OR_NEWER
+        public static bool TryAdd<TKey, TValue>(this Dictionary<TKey, TValue> dict, TKey key, TValue value)
+        {
+            if (dict == null)
+                return false;
+
+            if (dict.ContainsKey(key))
+                return false;
+
+            dict.Add(key, value);
+            return true;
+        }
+#endif
     }
 }
