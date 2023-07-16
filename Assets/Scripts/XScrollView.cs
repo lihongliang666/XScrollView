@@ -48,13 +48,15 @@ namespace XUITools
 
         [SerializeField] private ScrollDirection scrollDir;
 
-        [SerializeField] ScrollViewType scrollViewType;
+        [SerializeField] private ScrollViewType scrollViewType;
 
         #endregion
 
         public Func<int, string> onGetItemIdentifier;
 
         public Action<int, string, GameObject> onItemRefresh;
+        
+        public Action<int, string, GameObject> onItemRelease;
 
         private ScrollRect scrollRect;
 
@@ -352,12 +354,14 @@ namespace XUITools
                     // out of range, remove it.
                     if (item.Key < firstShowIndex || item.Key > lastShowIndex)
                     {
+                        this.onItemRelease?.Invoke(item.Key, item.Value.name, item.Value);
                         this.itemPool.Release(item.Value);
                         removeKeys.Add(item.Key);
                     }
                     // item incorrectly, remove it.
                     else if (item.Value.name != this.virtualList[item.Key].identifier)
                     {
+                        this.onItemRelease?.Invoke(item.Key, item.Value.name, item.Value);
                         this.itemPool.Release(item.Value);
                         removeKeys.Add(item.Key);
                     }
@@ -373,14 +377,13 @@ namespace XUITools
                     {
                         go = this.itemPool.Get(itemData.identifier);
                         this.itemEntities.Add(i, go);
+                        this.onItemRefresh?.Invoke(i, itemData.identifier, go);
                     }
 
                     var rt = go.GetComponent<RectTransform>();
                     rt.anchoredPosition = itemData.pos;
                     if (rt.rect.size != itemData.size)
                         rt.sizeDelta = GetItemSize(itemData);
-
-                    this.onItemRefresh?.Invoke(i, itemData.identifier, go);
                 }
             }
             else
